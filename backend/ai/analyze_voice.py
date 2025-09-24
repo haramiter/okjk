@@ -86,45 +86,64 @@ COMPLEX_MAPPING = {
     ("410~430Hz", "다이나믹한"): "세상에서 제일 화가 난 닭"
 }
 
-# -------------------------
-# 분석 함수
-# -------------------------
 def analyze_voice_for_fun(audio_data):
+    """
+    오디오 데이터를 분석하여 톤과 피치 변동성을 기반으로 동물 소리를 반환합니다.
+    (piptrack → pyin 기반으로 수정)
+    """
     try:
         y, sr = sf.read(io.BytesIO(audio_data), dtype='float32')
 
+        # 스테레오 → 모노 변환
         if len(y.shape) > 1:
             y = np.mean(y, axis=1)
-
-        intervals = librosa.effects.split(y, top_db=25)
+        
+        # 음성 활동 감지 (top_db=60으로 잡음 무시)
+        intervals = librosa.effects.split(y, top_db=60)
+        
         if not intervals.any():
             return {"status": "failure", "message": "유효한 음성 구간이 없습니다."}
 
         y_voice = np.concatenate([y[start:end] for start, end in intervals])
+        
         if len(y_voice) == 0:
             return {"status": "failure", "message": "분석할 음성 데이터가 너무 짧습니다."}
+            
+        # ---- pyin 기반 F0 추출 ----
+        f0, voiced_flag, voiced_prob = librosa.pyin(
+            y_voice, 
+            fmin=50,   # 목소리 최소 주파수
+            fmax=430,  # 목소리 최대 주파수
+            sr=sr
+        )
+        final_pitches = f0[~np.isnan(f0)]  # NaN 제거
+        # ---------------------------
 
-        pitches, magnitudes = librosa.piptrack(y=y_voice, sr=sr)
-        valid_pitches = pitches[magnitudes > np.mean(magnitudes) * 0.7]
-        valid_pitches = valid_pitches[(valid_pitches >= 50) & (valid_pitches <= 430)]
-        if valid_pitches.size == 0:
-            return {"status": "failure", "message": "허용 범위 내 유효한 피치를 감지할 수 없습니다."}
+        if final_pitches.size == 0:
+            return {"status": "failure", "message": "유효한 음성 구간에서 피치를 감지할 수 없습니다."}
 
-        median_pitch = np.median(valid_pitches)
-        std_pitch = np.std(valid_pitches)
+        # 피치 중앙값과 표준편차 계산
+        median_pitch = np.median(final_pitches)
+        std_pitch = np.std(final_pitches)
 
+        # ---- 잡음 필터링 로직 ----
+        if 250 <= median_pitch <= 300 and std_pitch < 10:
+            return {"status": "failure", "message": "지속적인 배경 잡음이 감지되었습니다."}
+        # --------------------------
+
+        # 분석 결과 반환
         pitch_category = next(
-            (cat for cat, r in TONE_RANGES.items() if r["min"] <= median_pitch <= r["max"]),
+            (cat for cat, pitch_range in TONE_RANGES.items() if pitch_range["min"] <= median_pitch <= pitch_range["max"]),
             "알 수 없는 피치"
         )
-
+        
         variability_category = next(
-            (cat for cat, r in VARIABILITY_RANGES.items() if r["min"] <= std_pitch <= r["max"]),
+            (cat for cat, var_range in VARIABILITY_RANGES.items() if var_range["min"] <= std_pitch <= var_range["max"]),
             "알 수 없는 변동성"
         )
 
         mapped_sound = COMPLEX_MAPPING.get((pitch_category, variability_category), "알 수 없는 소리")
-
+        
         return {
             "status": "success",
             "median_pitch": float(round(median_pitch, 2)),
@@ -135,18 +154,5 @@ def analyze_voice_for_fun(audio_data):
         }
 
     except Exception as e:
-        return {"status": "failure", "message": f"음성 분석 중 오류 발생: {str(e)}"}
-
-# -------------------------
-# 테스트 예제
-# -------------------------
-if __name__ == "__main__":
-    # 테스트용 WAV 파일 경로
-    test_file_path = "example_voice.wav"  # 실제 WAV 파일로 교체 필요
-    try:
-        with open(test_file_path, "rb") as f:
-            audio_bytes = f.read()
-        result = analyze_voice_for_fun_stable(audio_bytes)
-        print("분석 결과:", result)
-    except FileNotFoundError:
-        print(f"테스트 WAV 파일을 찾을 수 없습니다: {test_file_path}")
+        print(f"Error during voice analysis: {e}")
+        return {"status": "failure", "message": f"음성 분석 중 오류가 발생했습니다: {str(e)}"}
