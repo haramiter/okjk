@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>월패드 · 소음 도움</title>
+  <style>
+    :root{
+      --panel:#f5f6f8;
+      --surface:#ffffff;
+      --ink:#1f2328;
+      --sub:#6c7486;
+      --line:#e6e9ef;
+      --brand:#5360ff;
+      --ok:#17b26a;
+      --warn:#ffb020;
+      --err:#ff5a5f;
+      --radius:18px;
+      --shadow:0 10px 28px rgba(0,0,0,.10);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--panel); color:var(--ink);
+      font:15px/1.45 system-ui, -apple-system, "Noto Sans KR", "Segoe UI", Roboto, Arial, sans-serif;
+      display:grid; place-items:center;
+    }
+
+    /* 프레임(월패드) */
+    .frame{
+      width:min(860px, 92vw); height:min(600px, 86vh);
+      background:linear-gradient(#eceef3,#e6e8ee);
+      border-radius:28px; padding:14px;
+      box-shadow:0 2px 0 rgba(0,0,0,.2) inset, var(--shadow);
+    }
+    .device{
+      height:100%; border-radius:22px; background:var(--surface);
+      border:1px solid #d7dbe4; overflow:hidden; display:grid;
+      grid-template-columns:86px 1fr;
+    }
+
+    /* 좌측 사이드 */
+    .side{
+      background:linear-gradient(#fbfbfe,#f3f5fc);
+      border-right:1px solid var(--line);
+      padding:16px 12px; display:flex; flex-direction:column; gap:10px;
+    }
+    .logo{
+      height:38px; border-radius:10px; background:#e9ecff; color:#2f3aff;
+      display:grid; place-items:center; font-weight:800; font-size:12px; letter-spacing:.4px;
+    }
+    .nav{display:grid; gap:8px; margin-top:8px}
+    .nav button{
+      all:unset; cursor:pointer; padding:12px 10px; border-radius:12px;
+      display:grid; place-items:center; color:var(--sub);
+      border:1px solid transparent;
+    }
+    .nav button.active{ background:#eef0ff; color:var(--brand); border-color:#d9ddff }
+    .ico{width:22px; height:22px; display:inline-block; border-radius:6px; background:#dfe3f2}
+
+    /* 메인 */
+    .main{display:grid; grid-template-rows:auto 1fr auto; gap:14px; padding:14px 16px}
+    .top{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      border-bottom:1px solid var(--line); padding-bottom:10px;
+    }
+    .status{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+    .db{font-weight:800; font-size:18px}
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:#fafbff;
+      font-weight:700;
+    }
+    .dot{width:10px; height:10px; border-radius:50%}
+    .idle{background:#c6cbd6} .ok{background:var(--ok)} .warn{background:var(--warn)} .err{background:var(--err)}
+    .gear{width:34px; height:34px; border:1px solid var(--line); border-radius:10px; background:#f6f7fb}
+
+    /* 파형 카드 */
+    .card{
+      border:1px solid var(--line); border-radius:16px; box-shadow:0 4px 18px rgba(0,0,0,.05);
+      background:#fff; padding:14px;
+      display:grid; grid-template-rows:auto 1fr; gap:12px;
+    }
+    .card h3{margin:0; font-size:16px}
+    .wave-wrap{
+      background:linear-gradient(#fbfcff,#f6f8ff);
+      border:1px dashed #cfd5e5; border-radius:12px; padding:10px;
+      height:100%; display:grid; place-items:center; position:relative; overflow:hidden;
+    }
+    canvas{width:100%; height:100%}
+
+    /* 하단 버튼 영역 */
+    .actions{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    }
+    .btn{
+      border:1px solid var(--line); background:#fff; border-radius:14px;
+      padding:14px 12px; font-weight:800; cursor:pointer; text-align:center;
+      transition:.12s ease; user-select:none;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:var(--brand); border-color:var(--brand); color:#fff}
+    .btn.ghost{background:#f3f5f9}
+
+    /* 토스트/모달 */
+    .toast{
+      position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
+      background:#1c2430; color:#fff; padding:10px 14px; border-radius:10px;
+      font-size:13px; opacity:0; pointer-events:none; transition:.25s ease;
+    }
+    .toast.show{opacity:1}
+    dialog{
+      border:0; border-radius:16px; padding:0; width:min(420px, 92vw); box-shadow:var(--shadow);
+    }
+    .modal{
+      padding:16px; display:grid; gap:10px; background:#fff; border-radius:16px;
+      border:1px solid var(--line);
+    }
+    .modal h4{margin:0}
+    .list{display:grid; gap:8px}
+    .item{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f6f8fc; border-radius:10px}
+    .meta{color:var(--sub); font-size:12px}
+    @media (max-width:720px){
+      .device{grid-template-columns:64px 1fr}
+      .actions{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="frame" role="group" aria-label="월패드 프레임">
+    <div class="device">
+      <!-- 좌측 사이드 -->
+      <aside class="side" aria-label="사이드 메뉴">
+        <div class="logo">소음 도움</div>
+        <nav class="nav">
+          <button class="active" title="대시보드" aria-label="대시보드"><span class="ico"></span></button>
+          <button title="소음 덮기"><span class="ico"></span></button>
+          <button title="소음 알림"><span class="ico"></span></button>
+          <button title="소음 상쇄"><span class="ico"></span></button>
+          <button title="설정"><span class="ico"></span></button>
+        </nav>
+      </aside>
+
+      <!-- 메인 -->
+      <section class="main">
+        <!-- 상단 현재 소음/상태 -->
+        <div class="top">
+          <div class="status" aria-live="polite">
+            <span class="db" id="dbText">현재 소음: 58 dB</span>
+            <span class="pill" id="statePill">
+              <span class="dot idle" id="stateDot"></span>
+              <span id="stateText">상태: 대기중</span>
+            </span>
+          </div>
+          <button class="gear" aria-label="설정 열기">⚙️</button>
+        </div>
+
+        <!-- 파형 -->
+        <div class="card" aria-label="실시간 소음 그래프">
+          <h3>실시간 소음 그래프</h3>
+          <div class="wave-wrap">
+            <canvas id="wave" height="160"></canvas>
+            <div class="toast" id="toast">동작이 시작되었습니다</div>
+          </div>
+        </div>
+
+        <!-- 하단 주요 버튼 -->
+        <div class="actions" aria-label="주요 동작">
+          <button class="btn primary" id="btnMask">소음 덮기 시작</button>
+          <button class="btn" id="btnLog">소음 알림 내역</button>
+          <button class="btn ghost" id="btnCancel">소음 상쇄 켜기</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- 알림 내역 모달 -->
+  <dialog id="logDialog">
+    <div class="modal">
+      <h4>알림 내역</h4>
+      <div class="list" id="logList">
+        <!-- 자바스크립트로 채움 -->
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn ghost" id="clearLog">기록 지우기</button>
+        <form method="dialog"><button class="btn">닫기</button></form>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    // 파형 애니메이션
+    const cvs = document.getElementById('wave');
+    const ctx = cvs.getContext('2d');
+    let t = 0;
+
+    function draw(db=58){
+      const w = cvs.width = cvs.clientWidth;
+      const h = cvs.height = cvs.clientHeight;
+      ctx.clearRect(0,0,w,h);
+
+      // 기준선
+      ctx.strokeStyle = '#d6dbea';
+      ctx.beginPath();
+      ctx.moveTo(0, h/2);
+      ctx.lineTo(w, h/2);
+      ctx.stroke();
+
+      // 파형
+      const amp = Math.min(48, 10 + (db-40)*0.9); // 데시벨에 따라 진폭 가변
+      ctx.strokeStyle = '#8893b5';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for(let x=0; x<w; x++){
+        const y = h/2 + Math.sin((x + t) * 0.02) * amp * Math.sin((x+t)*0.004);
+        if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+      t += 2;
+      requestAnimationFrame(()=>draw(currentDb));
+    }
+
+    // 상태/DB 시뮬레이션
+    const dbText = document.getElementById('dbText');
+    const stateText = document.getElementById('stateText');
+    const stateDot = document.getElementById('stateDot');
+    const statePill = document.getElementById('statePill');
+    let currentDb = 58;
+    let state = 'idle'; // idle | ok | warn | err
+
+    function setState(next){
+      state = next;
+      stateDot.className = 'dot ' + (next==='ok'?'ok':next==='warn'?'warn':next==='err'?'err':'idle');
+      stateText.textContent = '상태: ' + (next==='ok'?'감지중':next==='warn'?'소음 감지됨':next==='err'?'오류/중단':'대기중');
+      statePill.style.background = next==='warn' ? '#fff8ec' : next==='err' ? '#fff1f2' : '#fafbff';
+    }
+
+    // 랜덤 DB 업데이트
+    setInterval(()=>{
+      // 상태에 따라 변동폭
+      const jitter = state==='warn' ? 8 : state==='ok' ? 6 : 3;
+      currentDb = Math.max(35, Math.min(85, currentDb + (Math.random()*jitter - jitter/2)));
+      dbText.textContent = `현재 소음: ${Math.round(currentDb)} dB`;
+
+      // 임계치에 따른 상태 전환(데모)
+      if(currentDb > 70) setState('warn');
+      else if(currentDb > 55) setState('ok');
+      else setState('idle');
+    }, 1200);
+
+    // 토스트
+    const toast = document.getElementById('toast');
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(()=>toast.classList.remove('show'), 1500);
+    }
+
+    // 버튼 동작
+    const btnMask = document.getElementById('btnMask');
+    const btnCancel = document.getElementById('btnCancel');
+    const btnLog = document.getElementById('btnLog');
+    const logDialog = document.getElementById('logDialog');
+    const logList = document.getElementById('logList');
+    const clearLog = document.getElementById('clearLog');
+
+    const logs = [];
+
+    btnMask.addEventListener('click', ()=>{
+      logs.unshift({text:'소음 덮기(파도 소리) 시작', time:new Date()});
+      setState('ok'); showToast('소음 덮기를 시작했어요');
+      renderLogs();
+    });
+
+    btnCancel.addEventListener('click', ()=>{
+      const on = btnCancel.dataset.on === '1';
+      btnCancel.dataset.on = on ? '0' : '1';
+      btnCancel.textContent = on ? '소음 상쇄 켜기' : '소음 상쇄 끄기';
+      logs.unshift({text:`소음 상쇄 ${on?'OFF':'ON'}`, time:new Date()});
+      showToast(`소음 상쇄 ${on?'OFF':'ON'}`);
+      renderLogs();
+    });
+
+    btnLog.addEventListener('click', ()=>{
+      renderLogs();
+      logDialog.showModal();
+    });
+
+    clearLog.addEventListener('click', ()=>{
+      logs.length = 0; renderLogs();
+    });
+
+    function renderLogs(){
+      logList.innerHTML = logs.slice(0,8).map(l=>{
+        const t = l.time.toTimeString().slice(0,5);
+        return `<div class="item"><div>${l.text}</div><div class="meta">${t}</div></div>`
+      }).join('') || `<div class="meta">아직 기록이 없어요</div>`;
+    }
+
+    // 시작
+    setState('idle'); draw(currentDb);
+  </script>
+</body>
+</html>

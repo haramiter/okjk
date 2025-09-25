@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>소음 모니터링 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9fafc;
+      color: #333;
+    }
+
+    header {
+      background: #6C63FF;
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      color: #444;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 250px !important;
+    }
+
+    .feedback {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .feedback button {
+      flex: 1;
+      margin: 0 5px;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #eee;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .feedback button:hover {
+      background: #6C63FF;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <header>🎧 소음 모니터링 대시보드</header>
+
+  <main class="dashboard">
+    <!-- 실시간 소음 -->
+    <div class="card">
+      <h2>실시간 소음</h2>
+      <canvas id="realtimeChart"></canvas>
+    </div>
+
+    <!-- 주간 통계 -->
+    <div class="card">
+      <h2>주간 소음 통계</h2>
+      <canvas id="weeklyChart"></canvas>
+    </div>
+
+    <!-- 소음 카테고리 -->
+    <div class="card">
+      <h2>소음 카테고리 비율</h2>
+      <canvas id="categoryChart"></canvas>
+    </div>
+
+    <!-- 사용자 피드백 -->
+    <div class="card">
+      <h2>오늘 소음은 어땠나요?</h2>
+      <div class="feedback">
+        <button>😡</button>
+        <button>😕</button>
+        <button>😐</button>
+        <button>🙂</button>
+        <button>😍</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 실시간 소음 그래프
+    const realtimeCtx = document.getElementById('realtimeChart').getContext('2d');
+    const realtimeChart = new Chart(realtimeCtx, {
+      type: 'line',
+      data: {
+        labels: ['1초', '2초', '3초', '4초', '5초'],
+        datasets: [{
+          label: 'dB',
+          data: [40, 45, 60, 50, 55],
+          borderColor: '#6C63FF',
+          tension: 0.3
+        }]
+      }
+    });
+
+    // 주간 소음 그래프
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+    new Chart(weeklyCtx, {
+      type: 'bar',
+      data: {
+        labels: ['월', '화', '수', '목', '금', '토', '일'],
+        datasets: [{
+          label: '평균 dB',
+          data: [45, 50, 48, 55, 60, 40, 42],
+          backgroundColor: '#6C63FF'
+        }]
+      }
+    });
+
+    // 카테고리 비율
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    new Chart(categoryCtx, {
+      type: 'pie',
+      data: {
+        labels: ['층간', '자동차', '반려동물', '기타'],
+        datasets: [{
+          data: [40, 25, 20, 15],
+          backgroundColor: ['#6C63FF', '#FF6584', '#FFD166', '#06D6A0']
+        }]
+      }
+    });
+  </script>
+
+</body>
+</html>
